@@ -1,0 +1,18 @@
+.navbar{
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 4%;
+}
+.navbar{
+    width: max(10%,80px);
+}
+.navbar .profile{
+    width: 40px;
+}
+.login-conditon{
+    font-size: 20px;
+}
+.logo{
+    width: 15vw;
+}
