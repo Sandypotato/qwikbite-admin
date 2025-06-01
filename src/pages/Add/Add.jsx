@@ -1,59 +1,148 @@
-import React, { useState } from "react";
+// src/components/food/Add.jsx
+import React, { useState, useContext, useEffect } from "react";
 import "./Add.css";
 import { assets } from "../../assets/assets";
 import axios from "axios";
 import { toast } from "react-toastify";
-import { useContext } from "react";
 import { StoreContext } from "../../context/StoreContext";
-import { useEffect } from "react";
-import {useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 
-const Add = ({url}) => {
-  const navigate=useNavigate();
-  const {token,admin} = useContext(StoreContext);
-  const [image, setImage] = useState(false);
+const Add = ({ url }) => {
+  const navigate = useNavigate();
+  const { token, admin } = useContext(StoreContext);
+
+  // NOTE: Changed default category to match one of your <option> values
   const [data, setData] = useState({
     name: "",
     description: "",
     price: "",
-    category: "Salad",
+    category: "Drinks Stall",
   });
+  const [imageFile, setImageFile] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const onChangeHandler = (event) => {
-    const name = event.target.name;
-    const value = event.target.value;
-    setData((data) => ({ ...data, [name]: value }));
-  };
-
-  const onSubmitHandler = async (event) => {
-    event.preventDefault();
-    const formData = new FormData();
-    formData.append("name", data.name);
-    formData.append("description", data.description);
-    formData.append("price", Number(data.price));
-    formData.append("category", data.category);
-    formData.append("image", image);
-
-    const response = await axios.post(`${url}/api/food/add`, formData,{headers:{token}});
-    if (response.data.success) {
-      setData({
-        name: "",
-        description: "",
-        price: "",
-        category: "Salad",
-      });
-      setImage(false);
-      toast.success(response.data.message);
-    } else {
-      toast.error(response.data.message);
-    }
-  };
-  useEffect(()=>{
-    if(!admin && !token){
+  // Redirect if not logged in / not admin
+  useEffect(() => {
+    if (!admin || !token) {
       toast.error("Please Login First");
-       navigate("/");
+      navigate("/");
     }
-  },[])
+  }, [admin, token, navigate]);
+
+  const onChangeHandler = (e) => {
+    const { name, value } = e.target;
+    setData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  // If you just want to send the raw File to your backend as multipart:
+  const onSubmitHandler = async (e) => {
+    e.preventDefault();
+    if (!imageFile) {
+      toast.error("Please upload an image");
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      // OPTION A: If your backend expects a binary file (multipart/form-data),
+      // simply do:
+      const formData = new FormData();
+      formData.append("name", data.name);
+      formData.append("description", data.description);
+      formData.append("price", Number(data.price));
+      formData.append("category", data.category);
+      formData.append("image", imageFile); // raw File object
+
+      const response = await axios.post(`${url}/api/food/add`, formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+          token: token,
+        },
+      });
+
+      if (response.data.success) {
+        // Clear the form
+        setData({
+          name: "",
+          description: "",
+          price: "",
+          category: "Drinks Stall",
+        });
+        setImageFile(null);
+        toast.success(response.data.message);
+      } else {
+        toast.error(response.data.message);
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Upload failed");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // If your backend *actually* wants Base64 on input, use FileReader:
+  /*
+  const onSubmitHandler = async (e) => {
+    e.preventDefault();
+    if (!imageFile) {
+      toast.error("Please upload an image");
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      // 1. Read the file as Data URL
+      const base64String = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          // reader.result is something like "data:image/png;base64,XXXXX"
+          // We split off the prefix so we send only the Base64 payload.
+          const [prefix, payload] = reader.result.split(",");
+          resolve(payload);
+        };
+        reader.onerror = (error) => reject(error);
+        reader.readAsDataURL(imageFile);
+      });
+
+      // 2. Now build a JSON or FormData that includes that Base64.
+      // If your backend expects JSON:
+      const payload = {
+        name: data.name,
+        description: data.description,
+        price: Number(data.price),
+        category: data.category,
+        imageBase64: base64String,
+      };
+
+      const response = await axios.post(`${url}/api/food/add/base64`, payload, {
+        headers: {
+          "Content-Type": "application/json",
+          token: token,
+        },
+      });
+
+      if (response.data.success) {
+        setData({
+          name: "",
+          description: "",
+          price: "",
+          category: "Drinks Stall",
+        });
+        setImageFile(null);
+        toast.success(response.data.message);
+      } else {
+        toast.error(response.data.message);
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Upload failed");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+  */
+
   return (
     <div className="add">
       <form onSubmit={onSubmitHandler} className="flex-col">
@@ -61,18 +150,20 @@ const Add = ({url}) => {
           <p>Upload image</p>
           <label htmlFor="image">
             <img
-              src={image ? URL.createObjectURL(image) : assets.upload_area}
-              alt=""
+              src={imageFile ? URL.createObjectURL(imageFile) : assets.upload_area}
+              alt="upload-preview"
             />
           </label>
           <input
-            onChange={(e) => setImage(e.target.files[0])}
+            onChange={(e) => setImageFile(e.target.files[0])}
             type="file"
             id="image"
+            accept="image/*"
             hidden
             required
           />
         </div>
+
         <div className="add-product-name flex-col">
           <p>Product name</p>
           <input
@@ -84,6 +175,7 @@ const Add = ({url}) => {
             required
           />
         </div>
+
         <div className="add-product-description flex-col">
           <p>Product description</p>
           <textarea
@@ -93,41 +185,44 @@ const Add = ({url}) => {
             rows="6"
             placeholder="Write content here"
             required
-          ></textarea>
+          />
         </div>
+
         <div className="add-category-price">
           <div className="add-category flex-col">
             <p>Product category</p>
             <select
               name="category"
-              required
-              onChange={onChangeHandler}
               value={data.category}
+              onChange={onChangeHandler}
+              required
             >
-              <option value="Salad">Salad</option>
-              <option value="Rolls">Rolls</option>
-              <option value="Deserts">Deserts</option>
-              <option value="Sandwich">Sandwich</option>
-              <option value="Cake">Cake</option>
-              <option value="Pure Veg">Pure Veg</option>
-              <option value="Pasta">Pasta</option>
-              <option value="Noodles">Noodles</option>
+              <option value="Drinks Stall">Drinks Stall</option>
+              <option value="Prata Stall">Prata Stall</option>
+              <option value="Mix Veg Rice">Mix Veg Rice</option>
+              <option value="Noodles Stall">Noodles Stall</option>
+              <option value="Thai">Thai</option>
+              <option value="Western">Western</option>
+              <option value="Yong Tau Foo">Yong Tau Foo</option>
+              <option value="Fruits Stall">Fruits Stall</option>
             </select>
           </div>
+
           <div className="add-price flex-col">
             <p>Product price</p>
             <input
               onChange={onChangeHandler}
               value={data.price}
-              type="Number"
+              type="number"
               name="price"
               placeholder="$20"
               required
             />
           </div>
         </div>
-        <button type="submit" className="add-btn">
-          ADD
+
+        <button type="submit" className="add-btn" disabled={isSubmitting}>
+          {isSubmitting ? "Uploading…" : "ADD"}
         </button>
       </form>
     </div>

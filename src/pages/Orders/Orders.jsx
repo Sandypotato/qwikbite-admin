@@ -46,7 +46,7 @@ const Orders = ({ url }) => {
     }
     fetchAllOrder();
   }, []);
-
+  console.log(orders)
   return (
     <div className="order add">
       <h3>Order Page</h3>
@@ -73,6 +73,7 @@ const Orders = ({ url }) => {
             </div>
             <p>Items: {order.items.length}</p>
             <p>${order.amount}</p>
+            <p className="order-item-id">Order ID: {order.orderId}</p>
             <select
               onChange={(event) => statusHandler(event, order._id)}
               value={order.status}
